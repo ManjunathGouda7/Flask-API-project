@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>People Directory · Flask API</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050505;
+            --bg-elevated: #0c0c0c;
+            --surface: rgba(18, 18, 18, 0.75);
+            --surface-solid: #121212;
+            --ink: #f4f4f5;
+            --muted: #a1a1aa;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-strong: rgba(255, 255, 255, 0.14);
+            --accent: #22d3ee;
+            --accent-dim: #0891b2;
+            --accent-soft: rgba(34, 211, 238, 0.12);
+            --accent-glow: rgba(34, 211, 238, 0.35);
+            --success: #34d399;
+            --success-soft: rgba(52, 211, 153, 0.12);
+            --danger: #f87171;
+            --danger-soft: rgba(248, 113, 113, 0.12);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --shadow: 0 0 0 1px var(--border), 0 8px 32px rgba(0, 0, 0, 0.45);
+            --glow: 0 0 24px var(--accent-glow);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 90% 60% at 50% -30%, rgba(34, 211, 238, 0.12), transparent 60%),
+                radial-gradient(ellipse 50% 40% at 100% 100%, rgba(8, 145, 178, 0.08), transparent),
+                radial-gradient(ellipse 40% 30% at 0% 80%, rgba(34, 211, 238, 0.05), transparent);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.12);
+            border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        main {
+            width: min(940px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 52px 0 90px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .eyebrow {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .eyebrow::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--accent);
+            animation: pulse 2.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        h1 {
+            font-size: clamp(2.1rem, 6vw, 3rem);
+            font-weight: 700;
+            letter-spacing: -0.035em;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 30%, #a5f3fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .count {
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 9px 18px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--muted);
+            box-shadow: var(--shadow);
+            white-space: nowrap;
+        }
+
+        /* Glass cards */
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 28px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.4), transparent);
+            opacity: 0.6;
+        }
+
+        .card:hover {
+            border-color: var(--border-strong);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .card-header h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        /* Form */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 16px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .field label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .field input {
+            height: 46px;
+            padding: 0 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font: 400 0.9375rem/1 Inter, system-ui, sans-serif;
+            color: var(--ink);
+            background: rgba(0, 0, 0, 0.35);
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+
+        .field input::placeholder { color: #52525b; }
+
+        .field input:hover {
+            border-color: var(--border-strong);
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 0 3px var(--accent-soft), var(--glow);
+        }
+
+        .field.api-key { max-width: 280px; }
+        .field.api-key input {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 0.8rem;
+            letter-spacing: 0.02em;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 46px;
+            padding: 0 22px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font: 600 0.875rem/1 Inter, system-ui, sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            color: #042f2e;
+            box-shadow: 0 0 20px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 0 32px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.25);
+            filter: brightness(1.08);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover:not(:disabled) {
+            background: rgba(255,255,255,0.04);
+            color: var(--ink);
+            border-color: var(--border-strong);
+        }
+
+        .btn-sm {
+            height: 34px;
+            padding: 0 13px;
+            font-size: 0.8rem;
+            border-radius: 8px;
+        }
+
+        .btn-edit {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid transparent;
+        }
+        .btn-edit:hover {
+            background: rgba(34, 211, 238, 0.2);
+            box-shadow: 0 0 16px rgba(34, 211, 238, 0.15);
+        }
+
+        .btn-delete {
+            background: var(--danger-soft);
+            color: var(--danger);
+            border: 1px solid transparent;
+        }
+        .btn-delete:hover {
+            background: rgba(248, 113, 113, 0.2);
+            box-shadow: 0 0 16px rgba(248, 113, 113, 0.15);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Status */
+        .status {
+            margin-top: 18px;
+            min-height: 22px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--muted);
+        }
+        .status.ok { color: var(--success); }
+        .status.error { color: var(--danger); }
+
+        /* Table */
+        .table-wrap { overflow-x: auto; border-radius: 12px; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9375rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.25);
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        tbody tr {
+            transition: background 0.15s;
+        }
+        tbody tr:hover {
+            background: rgba(34, 211, 238, 0.04);
+        }
+
+        .id-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 28px;
+            padding: 0 9px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font: 500 0.8rem/1 'JetBrains Mono', monospace;
+            border-radius: 7px;
+            border: 1px solid rgba(34, 211, 238, 0.2);
+        }
+
+        .email {
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+
+        .date {
+            font-size: 0.8rem;
+            color: var(--muted);
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* Empty state */
+        .empty {
+            text-align: center;
+            padding: 56px 16px;
+            color: var(--muted);
+        }
+        .empty svg {
+            width: 52px;
+            height: 52px;
+            margin-bottom: 14px;
+            opacity: 0.35;
+            stroke: var(--accent);
+        }
+
+        /* Pagination */
+        .pager {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 22px;
+            padding-top: 22px;
+            border-top: 1px solid var(--border);
+        }
+
+        .page-info {
+            font-size: 0.875rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .pager-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 720px) {
+            main { padding-top: 36px; }
+            header { flex-direction: column; align-items: flex-start; }
+            .form-grid { grid-template-columns: 1fr; }
+            .card { padding: 20px; }
+            .field.api-key { max-width: none; }
+            th:nth-child(1), td:nth-child(1),
+            th:nth-child(4), td:nth-child(4) { display: none; }
+            .actions { justify-content: flex-start; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <p class="eyebrow">Flask CRUD API</p>
+            <h1>People directory</h1>
+        </div>
+        <span class="count" id="count">Loading…</span>
+    </header>
+
+    <!-- Create / Edit -->
+    <section class="card">
+        <div class="card-header">
+            <h2 id="formTitle">Add a person</h2>
+            <div class="field api-key">
+                <label for="apiKey">API Key</label>
+                <input id="apiKey" type="password" placeholder="X-API-Key" autocomplete="off">
+            </div>
+        </div>
+
+        <form id="userForm">
+            <input type="hidden" id="editId">
+            <div class="form-grid">
+                <div class="field">
+                    <label for="name">Name</label>
+                    <input id="name" name="name" required maxlength="100" placeholder="Ada Lovelace">
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" required maxlength="150" placeholder="ada@example.com">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>Add person</span>
+                    </button>
+                    <button type="button" class="btn btn-ghost" id="cancelEdit" hidden>Cancel</button>
+                </div>
+            </div>
+        </form>
+        <p class="status" id="status" role="status"></p>
+    </section>
+
+    <!-- List -->
+    <section class="card">
+        <div class="card-header">
+            <h2>All people</h2>
+            <button type="button" class="btn btn-ghost btn-sm" id="refresh">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+            </button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Joined</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="users">
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty">Loading…</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pager" id="pager" hidden>
+            <span class="page-info" id="pageInfo"></span>
+            <div class="pager-controls">
+                <button type="button" class="btn btn-ghost btn-sm" id="prevPage">← Previous</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="nextPage">Next →</button>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+(() => {
+    const apiKeyInput = document.querySelector('#apiKey');
+    const statusEl    = document.querySelector('#status');
+    const usersEl     = document.querySelector('#users');
+    const countEl     = document.querySelector('#count');
+    const nameInput   = document.querySelector('#name');
+    const emailInput  = document.querySelector('#email');
+    const editIdInput = document.querySelector('#editId');
+    const formTitle   = document.querySelector('#formTitle');
+    const submitBtn   = document.querySelector('#submitBtn');
+    const cancelBtn   = document.querySelector('#cancelEdit');
+    const pagerEl     = document.querySelector('#pager');
+    const pageInfo    = document.querySelector('#pageInfo');
+    const prevBtn     = document.querySelector('#prevPage');
+    const nextBtn     = document.querySelector('#nextPage');
+
+    let currentPage = 1;
+    const perPage = 20;
+    let totalPages = 1;
+
+    apiKeyInput.value = sessionStorage.getItem('apiKey') || '';
+    apiKeyInput.addEventListener('input', () => {
+        sessionStorage.setItem('apiKey', apiKeyInput.value);
+    });
+
+    function showStatus(message, type = '') {
+        statusEl.textContent = message;
+        statusEl.className = `status${type ? ' ' + type : ''}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>'"]/g, ch =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch])
+        );
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        try {
+            return new Date(iso).toLocaleDateString(undefined, {
+                year: 'numeric', month: 'short', day: 'numeric'
+            });
+        } catch {
+            return '—';
+        }
+    }
+
+    function headers(json = false) {
+        const h = { 'X-API-Key': apiKeyInput.value };
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+    }
+
+    async function loadUsers(page = 1) {
+        usersEl.innerHTML = `
+            <tr><td colspan="5"><div class="empty">Loading…</div></td></tr>
+        `;
+        pagerEl.hidden = true;
+
+        try {
+            const res = await fetch(`/users?page=${page}&per_page=${perPage}&sort=id&order=asc`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not load users');
+
+            currentPage = data.page;
+            totalPages  = data.pages || 1;
+
+            countEl.textContent = `${data.total} ${data.total === 1 ? 'person' : 'people'}`;
+
+            if (!data.items.length) {
+                usersEl.innerHTML = `
+                    <tr>
+                        <td colspan="5">
+                            <div class="empty">
+                                <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                                <div>No people yet. Add the first one above.</div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                usersEl.innerHTML = data.items.map(user => `
+                    <tr data-id="${user.id}">
+                        <td><span class="id-badge">${user.id}</span></td>
+                        <td><strong>${escapeHtml(user.name)}</strong></td>
+                        <td class="email">${escapeHtml(user.email)}</td>
+                        <td class="date">${formatDate(user.created_at)}</td>
+                        <td>
+                            <div class="actions">
+                                <button type="button" class="btn btn-sm btn-edit"
+                                    data-id="${user.id}"
+                                    data-name="${escapeHtml(user.name)}"
+                                    data-email="${escapeHtml(user.email)}">
+                                    Edit
+                                </button>
+                                <button type="button" class="btn btn-sm btn-delete" data-id="${user.id}">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            if (totalPages > 1) {
+                pagerEl.hidden = false;
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            }
+        } catch (err) {
+            usersEl.innerHTML = `
+                <tr><td colspan="5"><div class="empty" style="color:var(--danger)">${escapeHtml(err.message)}</div></td></tr>
+            `;
+            showStatus(err.message, 'error');
+        }
+    }
+
+    function resetForm() {
+        editIdInput.value = '';
+        nameInput.value = '';
+        emailInput.value = '';
+        formTitle.textContent = 'Add a person';
+        submitBtn.innerHTML = `
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Add person</span>
+        `;
+        cancelBtn.hidden = true;
+    }
+
+    document.querySelector('#userForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = editIdInput.value;
+        const isEdit = Boolean(id);
+
+        showStatus(isEdit ? 'Updating…' : 'Saving…');
+        submitBtn.disabled = true;
+
+        try {
+            const url = isEdit ? `/users/${id}` : '/users';
+            const method = isEdit ? 'PATCH' : 'POST';
+
+            const res = await fetch(url, {
+                method,
+                headers: headers(true),
+                body: JSON.stringify({
+                    name: nameInput.value.trim(),
+                    email: emailInput.value.trim()
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+
+            resetForm();
+            showStatus(isEdit ? 'Person updated successfully.' : 'Person added successfully.', 'ok');
+            await loadUsers(isEdit ? currentPage : 1);
+        } catch (err) {
+            showStatus(err.message, 'error');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+
+    usersEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-edit');
+        if (!btn) return;
+
+        editIdInput.value = btn.dataset.id;
+        nameInput.value   = btn.dataset.name;
+        emailInput.value  = btn.dataset.email;
+        formTitle.textContent = `Edit person #${btn.dataset.id}`;
+        submitBtn.innerHTML = `<span>Save changes</span>`;
+        cancelBtn.hidden = false;
+        nameInput.focus();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        resetForm();
+        showStatus('');
+    });
+
+    usersEl.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-delete');
+        if (!btn) return;
+
+        const id = btn.dataset.id;
+        if (!confirm(`Delete person #${id}? This cannot be undone.`)) return;
+
+        showStatus('Deleting…');
+        try {
+            const res = await fetch(`/users/${id}`, {
+                method: 'DELETE',
+                headers: headers()
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Could not delete person');
+
+            showStatus('Person deleted.', 'ok');
+            const rows = usersEl.querySelectorAll('tr[data-id]');
+            const nextPage = (rows.length === 1 && currentPage > 1)
+                ? currentPage - 1
+                : currentPage;
+            await loadUsers(nextPage);
+        } catch (err) {
+            showStatus(err.message, 'error');
+        }
+    });
+
+    document.querySelector('#refresh').addEventListener('click', () => {
+        loadUsers(currentPage).catch(err => showStatus(err.message, 'error'));
+    });
+    prevBtn.addEventListener('click', () => {
+        if (currentPage > 1) loadUsers(currentPage - 1);
+    });
+    nextBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) loadUsers(currentPage + 1);
+    });
+
+    loadUsers().catch(err => showStatus(err.message, 'error'));
+})();
+</script>
+</body>
+</html>
