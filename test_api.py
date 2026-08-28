@@ -69,6 +69,22 @@ class UserApiTestCase(unittest.TestCase):
         response = self.client.get("/users/999")
         self.assertEqual(response.status_code, 404)
 
+    def test_search_and_stats(self):
+        self.client.post("/users", headers=self.headers,
+                         json={"name": "Ada", "email": "ada@example.com"})
+        self.client.post("/users", headers=self.headers,
+                         json={"name": "Grace", "email": "grace@example.com"})
+
+        response = self.client.get("/users?q=grace")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["total"], 1)
+        self.assertEqual(response.json["items"][0]["name"], "Grace")
+
+        response = self.client.get("/stats")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["total_users"], 2)
+        self.assertIsNotNone(response.json["latest_signup"])
+
     def test_write_without_api_key_is_rejected(self):
         response = self.client.post(
             "/users", json={"name": "Ada", "email": "ada@example.com"}

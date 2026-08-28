@@ -7,6 +7,8 @@ A small Flask CRUD API with SQLite storage and a browser dashboard for managing 
 - Create, read, update, and delete users
 - Email validation and duplicate-email protection
 - Pagination for the user list
+- Search and sorting for the user list
+- Dashboard edit, delete, search, and pagination controls
 - API-key protection for write operations
 - SQLite database using Flask-SQLAlchemy
 - Simple responsive browser UI
@@ -101,6 +103,7 @@ The SQLite database is created automatically on first startup.
 |---|---|---:|---|
 | GET | `/api` | No | API health check |
 | GET | `/users` | No | List users |
+| GET | `/stats` | No | User count and latest signup |
 | GET | `/users/<id>` | No | Get one user |
 | POST | `/users` | Yes | Create a user |
 | PUT | `/users/<id>` | Yes | Replace a user |
@@ -120,6 +123,20 @@ GET /users?page=1&per_page=20
 ```
 
 The response contains `items`, `page`, `per_page`, `total`, and `pages`.
+
+Search by name or email and sort the results:
+
+```text
+GET /users?q=ada&sort=name&order=asc&page=1&per_page=20
+```
+
+### Statistics
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:5000/stats
+```
+
+This returns the total number of users and the latest signup timestamp.
 
 ### Get One User
 

@@ -203,6 +203,18 @@ def health():
         return error_response("Database unavailable", 503)
 
 
+@app.get("/stats")
+def stats():
+    total = db.session.scalar(select(db.func.count(User.id))) or 0
+    latest = db.session.scalar(
+        select(User.created_at).order_by(User.created_at.desc()).limit(1)
+    )
+    return jsonify({
+        "total_users": total,
+        "latest_signup": latest.isoformat() if latest else None,
+    }), 200
+
+
 @app.get("/")
 def dashboard():
     response = make_response(render_template("index.html"))
@@ -217,6 +229,7 @@ def dashboard():
 def get_users():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
+    search = request.args.get("q", "").strip()
     sort = request.args.get("sort", "id").lower()
     order = request.args.get("order", "asc").lower()
 
@@ -234,9 +247,16 @@ def get_users():
     column = getattr(User, sort)
     order_by = column.desc() if order == "desc" else column.asc()
 
+    query = select(User)
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.where(
+            db.or_(User.name.ilike(search_pattern), User.email.ilike(search_pattern))
+        )
+
     pagination = (
         db.paginate(
-            select(User).order_by(order_by),
+            query.order_by(order_by),
             page=page,
             per_page=per_page,
             error_out=False,

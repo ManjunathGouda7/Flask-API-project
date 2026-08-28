@@ -175,6 +175,14 @@
             letter-spacing: -0.02em;
         }
 
+        .list-tools {
+            display: flex;
+            align-items: end;
+            gap: 12px;
+        }
+
+        .search-box { width: min(280px, 100%); }
+
         /* Form */
         .form-grid {
             display: grid;
@@ -431,6 +439,8 @@
             th:nth-child(1), td:nth-child(1),
             th:nth-child(4), td:nth-child(4) { display: none; }
             .actions { justify-content: flex-start; }
+            .list-tools { width: 100%; align-items: stretch; flex-direction: column; }
+            .search-box { width: 100%; }
         }
     </style>
 </head>
@@ -481,10 +491,16 @@
     <section class="card">
         <div class="card-header">
             <h2>All people</h2>
-            <button type="button" class="btn btn-ghost btn-sm" id="refresh">
-                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                Refresh
-            </button>
+            <div class="list-tools">
+                <div class="field search-box">
+                    <label for="search">Search people</label>
+                    <input id="search" type="search" placeholder="Name or email">
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="refresh">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Refresh
+                </button>
+            </div>
         </div>
 
         <div class="table-wrap">
@@ -534,10 +550,12 @@
     const pageInfo    = document.querySelector('#pageInfo');
     const prevBtn     = document.querySelector('#prevPage');
     const nextBtn     = document.querySelector('#nextPage');
+    const searchInput = document.querySelector('#search');
 
     let currentPage = 1;
     const perPage = 20;
     let totalPages = 1;
+    let searchTimer;
 
     apiKeyInput.value = sessionStorage.getItem('apiKey') || '';
     apiKeyInput.addEventListener('input', () => {
@@ -579,7 +597,11 @@
         pagerEl.hidden = true;
 
         try {
-            const res = await fetch(`/users?page=${page}&per_page=${perPage}&sort=id&order=asc`);
+            const params = new URLSearchParams({
+                page, per_page: perPage, sort: 'id', order: 'asc'
+            });
+            if (searchInput.value.trim()) params.set('q', searchInput.value.trim());
+            const res = await fetch(`/users?${params}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Could not load users');
 
@@ -740,6 +762,10 @@
     });
     nextBtn.addEventListener('click', () => {
         if (currentPage < totalPages) loadUsers(currentPage + 1);
+    });
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadUsers(1), 250);
     });
 
     loadUsers().catch(err => showStatus(err.message, 'error'));
